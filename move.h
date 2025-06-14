@@ -1,69 +1,78 @@
-//move.h -- Moves the selected mal according to the toss result
+#pragma once
+// move.h -- Moves the selected mal one step per QTimer tick
+#ifndef MOVE_H
+#define MOVE_H
 
-void move(void) {
+#include "defvar.h"
+#include "movemal.h"
+#include "moveresult.h"
 
-	if (leave == OFF) {
-		station[loc[malSelected]] = EMPTY;
-		leave = ON;
-		total = result;
-	}
-	else if (leave == ON) {
-		if (time6 == 0 && result > 0) {
-			if (curP == P1 && status[malSelected] == DOUBLE) {
-				routePos[P11]++;				//If ub, move both mals
-				routePos[P12]++;
-				moveMal(P11);
-				moveMal(P12);
-			}
-			else if (curP == P2 && status[malSelected] == DOUBLE) {
-				routePos[P21]++;				//If ub, move both mals
-				routePos[P22]++;
-				moveMal(P21);
-				moveMal(P22);
-			}
-			else if (status[malSelected] == SINGLE) {
-				routePos[malSelected]++;		//If not, move selected mal
-				moveMal(malSelected);
-			}
-			checkScore();						//Terminate if scored
-			result--;
-			time6 = t6;
-		}
-		else if (time6 == 0 && result < 0) {	//BACKDO
-			if (curP == P1 && status[malSelected] == DOUBLE) {
-				routePos[P11]--;				//If ub, move both mals
-				routePos[P12]--;
-				moveMal(P11);
-				moveMal(P12);
-			}
-			else if (curP == P2 && status[malSelected] == DOUBLE) {
-				routePos[P21]--;				//If ub, move both mals
-				routePos[P22]--;
-				moveMal(P21);
-				moveMal(P22);
-			}
-			else if (status[malSelected] == SINGLE) {
-				routePos[malSelected]--;		//If not, move selected mal
-				moveMal(malSelected);
-			}
-			checkScore();						//Terminate if scored
-			result++;
-			time6 = t6;
-		}
-		else if (time6 == 0 && result == 0) {	//Reached dest
-			if (curP == P1 && status[malSelected] == DOUBLE) {
-				updateRoute(P11);				//If ub, update both mals
-				updateRoute(P12);
-			}
-			else if (curP == P2 && status[malSelected] == DOUBLE) {
-				updateRoute(P21);				//If ub, update both mals
-				updateRoute(P22);
-			}
-			else if (status[malSelected] == SINGLE) {
-				updateRoute(malSelected);		//If not, update selected mal
-			}
-			checkScore();						//Terminate if scored
-			checkStation();
-		}
-	}
+/**
+ * Advances the selected mal by exactly one step each time it's called.
+ * Pacing is handled externally by QTimer in the Qt UI layer.
+ */
+static inline void moveStep() {
+    if (leave == OFF) {
+        // Departure: clear old station, store remaining steps
+        station[loc[malSelected]] = EMPTY;
+        leave = ON;
+        total = result;
+        return;  // next call will perform the first move
+    }
+
+    // Already departed: perform one step per invocation
+    if (total > 0) {
+        // Forward move
+        if (curP == P1 && status[malSelected] == DOUBLE) {
+            routePos[P11]++; moveMal(P11);
+            routePos[P12]++; moveMal(P12);
+        }
+        else if (curP == P2 && status[malSelected] == DOUBLE) {
+            routePos[P21]++; moveMal(P21);
+            routePos[P22]++; moveMal(P22);
+        }
+        else {
+            routePos[malSelected]++;
+            moveMal(malSelected);
+        }
+        total--;        // one step consumed
+    }
+    else if (total < 0) {
+        // Backdo move
+        if (curP == P1 && status[malSelected] == DOUBLE) {
+            routePos[P11]--; moveMal(P11);
+            routePos[P12]--; moveMal(P12);
+        }
+        else if (curP == P2 && status[malSelected] == DOUBLE) {
+            routePos[P21]--; moveMal(P21);
+            routePos[P22]--; moveMal(P22);
+        }
+        else {
+            routePos[malSelected]--;
+            moveMal(malSelected);
+        }
+        total++;
+    }
+    else {
+        // total == 0: reached destination
+        if (curP == P1 && status[malSelected] == DOUBLE) {
+            updateRoute(P11); moveMal(P11);
+            updateRoute(P12); moveMal(P12);
+        }
+        else if (curP == P2 && status[malSelected] == DOUBLE) {
+            updateRoute(P21); moveMal(P21);
+            updateRoute(P22); moveMal(P22);
+        }
+        else {
+            updateRoute(malSelected);
+            moveMal(malSelected);
+        }
+        // Post-move checks
+        checkScore();    // win or scoring logic
+        checkStation();  // stacking/capture logic
+        leave = OFF;    // reset for next turn
+    }
 }
+
+#endif // MOVE_H
+
